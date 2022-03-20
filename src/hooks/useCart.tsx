@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { toast } from "react-toastify";
 import { api } from "../services/api";
-import { Product, Stock } from "../types";
+import { Product } from "../types";
 
 interface CartProviderProps {
   children: ReactNode;
@@ -84,7 +84,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
         updatedCart.push(newProduct);
       }
 
-      //atualiza state do carrinho
+      // atualiza state do carrinho
       setCart(updatedCart);
 
       // local storage deve receber string
@@ -96,9 +96,30 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO;
+      // imutabilidade
+      const updatedCart = [...cart];
+
+      // findIndex -> retorna o primeiro index que satisfaz condição, caso contrário retorna -1
+      const productIndex = updatedCart.findIndex(
+        (product) => product.id === productId
+      );
+
+      // maior ou igual a zero -> produto encontrado
+      if (productIndex >= 0) {
+        // apagar index encontrado
+        updatedCart.splice(productIndex, 1);
+
+        // redefine valor do state que estava imutado
+        setCart(updatedCart);
+
+        // local storage deve receber string
+        localStorage.setItem("@RocketShoes:cart", JSON.stringify(updatedCart));
+      } else {
+        // direciona para catch
+        throw Error();
+      }
     } catch {
-      // TODO;
+      toast.error("Erro na remoção do produto");
     }
   };
 
@@ -107,9 +128,42 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO;
+      if (amount <= 0) {
+        return;
+      }
+
+      // pegar estoque através da api
+      const stock = await api.get(`/stock/${productId}`);
+
+      // quantidade de estoque
+      const stockAmount = stock.data.amount;
+
+      // quando cliente pede mais do que tem no estoque
+      if (amount > stockAmount) {
+        toast.error("Quantidade solicitada fora de estoque");
+        return;
+      }
+
+      const updatedCart = [...cart];
+      const productExists = updatedCart.find(
+        (product) => product.id === productId
+      );
+
+      // se produto existe...
+      if (productExists) {
+        // recebe quantidade
+        productExists.amount = amount;
+
+        // restabelece state
+        setCart(updatedCart);
+
+        // guarda valor atualizado no localStorage
+        localStorage.setItem("@RocketShoes:cart", JSON.stringify(updatedCart));
+      } else {
+        throw Error();
+      }
     } catch {
-      // TODO;
+      toast.error("Erro na alteração de quantidade do produto");
     }
   };
 
